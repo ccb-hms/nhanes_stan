@@ -1,0 +1,49 @@
+{
+    "editor_theme": "Idle Fingers",
+    "posix_terminal_shell": "bash",
+    "panes": {
+        "quadrants": [
+            "Source",
+            "TabSet1",
+            "Console",
+            "TabSet2"
+        ],
+        "tabSet1": [
+            "History",
+            "Presentation"
+        ],
+        "tabSet2": [
+            "Environment",
+            "Files",
+            "Plots",
+            "Packages",
+            "Help",
+            "VCS",
+            "Viewer",
+            "Presentations",
+            "Build"
+        ],
+        "hiddenTabSet": [
+            "Connections",
+            "Tutorial"
+        ],
+        "console_left_on_top": false,
+        "console_right_on_top": true,
+        "additional_source_columns": 0
+    },
+    "jobs_tab_visibility": "shown",
+    "save_workspace": "never",
+    "reuse_sessions_for_project_links": true,
+    "always_save_history": false,
+    "load_workspace": false,
+    "insert_native_pipe_operator": true,
+    "rainbow_parentheses": true,
+    "show_panel_focus_rectangle": true,
+    "rmd_chunk_output_inline": false,
+    "latex_preview_on_cursor_idle": "never",
+    "reduced_motion": true,
+    "initial_working_directory": "~",
+    "server_editor_font_enabled": true,
+    "server_editor_font": "Fira Code"
+}
+
