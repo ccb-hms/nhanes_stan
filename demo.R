@@ -1,12 +1,12 @@
+library(tidyverse)
+
 library(nhanesA)
 library(phonto)
 
 library(brms) # cmdstanr is also installed
-library(modelr)
-
 library(bayesplot)
 library(tidybayes)
-library(ggplot2)
+library(modelr)
 
 # Pull data from the NHANES databse:
 cols <- list(DEMO_I   = c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2"),
@@ -20,17 +20,20 @@ cols <- list(DEMO_I   = c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2"),
 
 data <- jointQuery(cols)
 
+set.seed(123)
+
 # Take a small random subset so the example runs quickly:
-small_subset <- data[sample(nrow(data), 200),]
+small_subset <- data[sample(nrow(data), 300),] |> 
+    as_tibble()
 
 small_subset[,c("RIDAGEYR", "RIAGENDR", "LBDHDD")] |>
-  head(n = 10)
+    head(n = 10)
 
 small_subset |>
-  ggplot(aes(RIDAGEYR, LBDHDD)) +
-  geom_point() + 
-  facet_grid(cols = vars(RIAGENDR)) + 
-  labs(x = "Age", y = "HDL")
+    ggplot(aes(RIDAGEYR, LBDHDD)) +
+    geom_point() + 
+    facet_grid(cols = vars(RIAGENDR)) + 
+    labs(x = "Age", y = "HDL")
 
 # Run a linear model with HDL as the outcome variable and an interaction between
 # age and gender as covariates:
@@ -45,23 +48,47 @@ age_gender_hdl_model |> mcmc_trace('b_RIDAGEYR:RIAGENDRMale')
 
 # Examine the parameter estimates:
 age_gender_hdl_model$fit |> 
-  posterior::summarise_draws()
+    posterior::summarise_draws()
 
 age_gender_hdl_model |> 
-  mcmc_intervals('b_RIDAGEYR:RIAGENDRMale') + 
-  geom_vline(xintercept = 0, lty = 2) + 
-  xlim(NA, 0)
+    mcmc_intervals('b_RIDAGEYR:RIAGENDRMale') + 
+    geom_vline(xintercept = 0, lty = 2) + 
+    xlim(NA, 0)
 
 # Overlay the posterior predictive distribution on the data
 small_subset |>
-  data_grid(RIDAGEYR = seq_range(RIDAGEYR, 100),
-            RIAGENDR,
-            LBDHDD = 50) |> 
-  add_predicted_draws(age_gender_hdl_model) |> 
-  ggplot(aes(RIDAGEYR, LBDHDD)) +
-  stat_lineribbon(aes(y = .prediction)) + 
-  facet_grid(cols = vars(RIAGENDR)) + 
-  geom_point(data = small_subset) + 
-  scale_fill_brewer() + 
-  labs(x = "Age", y = "HDL") + 
-  theme_bw()
+    data_grid(RIDAGEYR = seq_range(RIDAGEYR, 100),
+              RIAGENDR,
+              LBDHDD = 50) |> 
+    add_predicted_draws(age_gender_hdl_model) |> 
+    ggplot(aes(RIDAGEYR, LBDHDD)) +
+    stat_lineribbon(aes(y = .prediction)) + 
+    facet_grid(cols = vars(RIAGENDR)) + 
+    geom_point(data = small_subset) + 
+    scale_fill_brewer() + 
+    labs(x = "Age", y = "HDL") + 
+    theme_bw()
+
+# Model #2: Incorporating race
+
+small_subset |>
+    ggplot(aes(RIDAGEYR, LBDHDD)) +
+    geom_point() + 
+    facet_grid(cols = vars(RIAGENDR), rows = vars(RIDRETH1)) + 
+    labs(x = "Age", y = "HDL")
+
+# Run a linear model with HDL as the outcome variable and an interaction between
+# age and gender as covariates with a racial-group-wise random intercept:
+
+
+small_subset$RIDRETH1 |> table() |> sort() 
+
+agr_hdl_model <- brm(LBDHDD ~ RIDAGEYR*RIAGENDR + (1|RIDRETH1),
+                     data = small_subset)
+
+# Look at information criteria and compare the two models
+loo(age_gender_hdl_model)
+loo(agr_hdl_model)
+
+loo_compare(loo(age_gender_hdl_model),
+            loo(agr_hdl_model))
