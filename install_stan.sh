@@ -8,7 +8,8 @@ install2.r --error --skipinstalled -r https://mc-stan.org/r-packages/ -r getOpti
     posterior \
     brms \
     tidybayes \
-    palmerpenguins
+    palmerpenguins \
+    Matrix
 
 R -q -e "cmdstanr::check_cmdstan_toolchain()"
 #R -q -e "dir.create('/home/rstudio/.cmdstan')"
