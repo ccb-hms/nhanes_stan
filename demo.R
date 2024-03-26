@@ -8,31 +8,50 @@ library(bayesplot)
 library(tidybayes)
 library(modelr)
 
+options("mc.cores" = 4)
+
 # Pull data from the NHANES databse:
-cols <- list(DEMO_I   = c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2"),
-             DEMO_J   = c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2"),
-             BPQ_I    = c('BPQ050A','BPQ020'),
-             BPQ_J    = c('BPQ050A','BPQ020'),
+cols <- list(DEMO_I   = c("RIDAGEYR", "RIAGENDR", "RIDRETH1", "DMDEDUC2"),
+             DEMO_J   = c("RIDAGEYR", "RIAGENDR", "RIDRETH1", "DMDEDUC2"),
+             BPQ_I    = c("BPQ050A", "BPQ020"),
+             BPQ_J    = c("BPQ050A", "BPQ020"),
              HDL_I    = c("LBDHDD"),
              HDL_J    = c("LBDHDD"), 
-             TRIGLY_I = c("LBXTR","LBDLDL"),
-             TRIGLY_J = c("LBXTR","LBDLDL"))
+             TRIGLY_I = c("LBXTR", "LBDLDL"),
+             TRIGLY_J = c("LBXTR", "LBDLDL"))
 
-data <- jointQuery(cols)
+
+data <- jointQuery(cols) |> 
+    as_tibble()
 
 set.seed(123)
 
 # Take a small random subset so the example runs quickly:
-small_subset <- data[sample(nrow(data), 300),] |> 
-    as_tibble()
+small_subset <- data |> 
+    slice_sample(n = 500)
 
-small_subset[,c("RIDAGEYR", "RIAGENDR", "LBDHDD")] |>
-    head(n = 10)
+# Examine it:
+small_subset
+
+small_subset |>
+    select(RIDAGEYR, RIAGENDR, LBDHDD)
+
+small_subset |> 
+    summarise(across(everything(),
+                     \(x) sum(is.na(x))))
 
 small_subset |>
     ggplot(aes(RIDAGEYR, LBDHDD)) +
     geom_point() + 
     facet_grid(cols = vars(RIAGENDR)) + 
+    labs(x = "Age", y = "HDL")
+
+
+small_subset |>
+    ggplot(aes(RIDAGEYR, LBDHDD)) +
+    geom_point() + 
+    facet_grid(cols = vars(RIAGENDR),
+               rows = vars(RIDRETH1)) + 
     labs(x = "Age", y = "HDL")
 
 # Run a linear model with HDL as the outcome variable and an interaction between
@@ -44,14 +63,14 @@ age_gender_hdl_model <- brm(LBDHDD ~ RIDAGEYR*RIAGENDR,
 age_gender_hdl_model |> prior_summary()
 
 # Examine the trace plot of the interaction parameter to assess convergence:
-age_gender_hdl_model |> mcmc_trace('b_RIDAGEYR:RIAGENDRMale')
+age_gender_hdl_model |> mcmc_trace("b_RIDAGEYR:RIAGENDRMale")
 
 # Examine the parameter estimates:
 age_gender_hdl_model$fit |> 
     posterior::summarise_draws()
 
 age_gender_hdl_model |> 
-    mcmc_intervals('b_RIDAGEYR:RIAGENDRMale') + 
+    mcmc_intervals("b_RIDAGEYR:RIAGENDRMale") + 
     geom_vline(xintercept = 0, lty = 2) + 
     xlim(NA, 0)
 

@@ -18,3 +18,5 @@ R -q -e "cmdstanr::install_cmdstan(dir = '/.cmdstan/',
                                    release_url = 'https://github.com/stan-dev/cmdstan/releases/download/v2.34.1/cmdstan-2.34.1.tar.gz')"
 
 chmod -R 777 /.cmdstan/
+
+echo "suppressMessages(cmdstanr::set_cmdstan_path('/.cmdstan/cmdstan-2.34.1'))" >> /usr/local/lib/R/etc/Rprofile.site

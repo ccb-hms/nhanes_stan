@@ -2,7 +2,7 @@ This dockerfile:
 
 - Starts from nhanes-workbench:version-0.4.1
 - Installs:
-    - R packages: cmdstanr, bayesplot, posterior, brms
+    - R packages: cmdstanr, bayesplot, posterior, brms, tidybayes, palmerpenguins, Matrix
     - CmdStan
 - Changes the look of RStudio:
     - Re-arranged panes
