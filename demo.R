@@ -3,14 +3,26 @@ library(tidyverse)
 library(nhanesA)
 library(phonto)
 
+library(lme4)
 library(brms) # cmdstanr is also installed
+
 library(bayesplot)
 library(tidybayes)
 library(modelr)
 
 options("mc.cores" = 4)
 
-# Pull data from the NHANES databse:
+# You are an epidemiologist studying the relationship between demographics and
+# HDL levels. Let's look up some of the variable names in the NHANES database:
+
+nhanesSearch("HDL") |>
+    as_tibble() |> 
+    print(n = 30)
+
+# Okay, let's pull out the LBDHDD variable from the 2015-2018 period, along with
+# some other demographic info looked up in the same way using the jointQuery()
+# function from phonto:
+
 cols <- list(DEMO_I   = c("RIDAGEYR", "RIAGENDR", "RIDRETH1", "DMDEDUC2"),
              DEMO_J   = c("RIDAGEYR", "RIAGENDR", "RIDRETH1", "DMDEDUC2"),
              BPQ_I    = c("BPQ050A", "BPQ020"),
@@ -54,22 +66,23 @@ small_subset |>
                rows = vars(RIDRETH1)) + 
     labs(x = "Age", y = "HDL")
 
+# Model #1: Age*Gender interaction ----
 # Run a linear model with HDL as the outcome variable and an interaction between
 # age and gender as covariates:
-age_gender_hdl_model <- brm(LBDHDD ~ RIDAGEYR*RIAGENDR,
-                            data = small_subset)
+ixn_model <- brm(LBDHDD ~ RIDAGEYR*RIAGENDR,
+                 data = small_subset)
 
 # Look at the default priors brms chose:
-age_gender_hdl_model |> prior_summary()
+ixn_model |> prior_summary()
 
 # Examine the trace plot of the interaction parameter to assess convergence:
-age_gender_hdl_model |> mcmc_trace("b_RIDAGEYR:RIAGENDRMale")
+ixn_model |> mcmc_trace("b_RIDAGEYR:RIAGENDRMale")
 
 # Examine the parameter estimates:
-age_gender_hdl_model$fit |> 
+ixn_model$fit |> 
     posterior::summarise_draws()
 
-age_gender_hdl_model |> 
+ixn_model |> 
     mcmc_intervals("b_RIDAGEYR:RIAGENDRMale") + 
     geom_vline(xintercept = 0, lty = 2) + 
     xlim(NA, 0)
@@ -79,7 +92,7 @@ small_subset |>
     data_grid(RIDAGEYR = seq_range(RIDAGEYR, 100),
               RIAGENDR,
               LBDHDD = 50) |> 
-    add_predicted_draws(age_gender_hdl_model) |> 
+    add_predicted_draws(ixn_model) |> 
     ggplot(aes(RIDAGEYR, LBDHDD)) +
     stat_lineribbon(aes(y = .prediction)) + 
     facet_grid(cols = vars(RIAGENDR)) + 
@@ -88,7 +101,16 @@ small_subset |>
     labs(x = "Age", y = "HDL") + 
     theme_bw()
 
-# Model #2: Incorporating race
+# Model #2: Incorporating race as a random intercept ----
+
+# Maybe different ethnicities have varying baseline levels of HDL. Run a linear
+# model with HDL as the outcome variable and an interaction between age and
+# gender as covariates with a racial-group-wise random intercept:
+
+small_subset |>
+    ggplot(aes(RIDRETH1, LBDHDD, group = RIAGENDR)) +
+    geom_point(position = position_jitterdodge(),
+               aes(color = RIAGENDR))
 
 small_subset |>
     ggplot(aes(RIDAGEYR, LBDHDD)) +
@@ -96,18 +118,37 @@ small_subset |>
     facet_grid(cols = vars(RIAGENDR), rows = vars(RIDRETH1)) + 
     labs(x = "Age", y = "HDL")
 
-# Run a linear model with HDL as the outcome variable and an interaction between
-# age and gender as covariates with a racial-group-wise random intercept:
-
-
 small_subset$RIDRETH1 |> table() |> sort() 
 
-agr_hdl_model <- brm(LBDHDD ~ RIDAGEYR*RIAGENDR + (1|RIDRETH1),
-                     data = small_subset)
+rand_int_model <- brm(LBDHDD ~ RIDAGEYR*RIAGENDR + (1|RIDRETH1),
+                      data = small_subset)
 
-# Look at information criteria and compare the two models
-loo(age_gender_hdl_model)
-loo(agr_hdl_model)
+# Model #3: Nesting ---- 
 
-loo_compare(loo(age_gender_hdl_model),
-            loo(agr_hdl_model))
+# Maybe there is no "global" effect of age. Maybe aging affects different
+# demographics differently? Let's try a "nested" random effects model. This
+# means there are random effects by the first grouping factor (gender here) and
+# a second level of "nested" random effects layered on top of those. Note the
+# notation on the right side of the vertical bar.
+
+nested_model = brm(LBDHDD ~ (1 + RIDAGEYR | RIAGENDR/RIDRETH1),
+                   data = small_subset)
+
+# Even though the expression for this model is pretty short, we're starting to
+# get a pretty high number of parameters. Do you notice any warnings? What how
+# does lmer fare?
+
+# Let's make the sampler take smaller steps and draw some additional iterations:
+nested_model2 = update(nested_model,
+                       control = list(adapt_delta = .975),
+                       iter = 3000, warmup = 1000)
+
+# LOO Comparison ----
+# Look at information criteria and compare the models
+loo(ixn_model)
+loo(rand_int_model)
+loo(nested_model2)
+
+loo_compare(loo(ixn_model),
+            loo(rand_int_model),
+            loo(nested_model2))

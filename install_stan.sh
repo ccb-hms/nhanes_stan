@@ -4,12 +4,14 @@ set -e
 
 install2.r --error --skipinstalled -r https://mc-stan.org/r-packages/ -r getOption \
     cmdstanr \
+
+install2.r --error Matrix \
+    lme4 \
     bayesplot \
     posterior \
     brms \
     tidybayes \
     palmerpenguins \
-    Matrix
 
 R -q -e "cmdstanr::check_cmdstan_toolchain()"
 #R -q -e "dir.create('/home/rstudio/.cmdstan')"
